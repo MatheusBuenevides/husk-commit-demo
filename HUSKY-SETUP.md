@@ -68,10 +68,71 @@ Esse hook valida se a mensagem do commit segue o padrão Conventional Commits.
 
 ## Passo 5 — Criar o arquivo de configuração do Commitlint
 
-Crie o arquivo `commitlint.config.js` na raiz do projeto:
+Crie o arquivo `commitlint.config.js` na raiz do projeto com as regras do time:
 
 ```js
-export default { extends: ['@commitlint/config-conventional'] };
+export default {
+  extends: ['@commitlint/config-conventional'],
+  rules: {
+    // Tamanho máximo do título: 72 caracteres
+    'header-max-length': [2, 'always', 72],
+
+    // Tamanho mínimo do título: 10 caracteres
+    'header-min-length': [2, 'always', 10],
+
+    // Tipos de commit permitidos
+    'type-enum': [
+      2,
+      'always',
+      ['feat', 'fix', 'docs', 'style', 'refactor', 'perf', 'test', 'build', 'chore', 'revert'],
+    ],
+
+    // Tipo obrigatório e em minúsculo
+    'type-case': [2, 'always', 'lower-case'],
+    'type-empty': [2, 'never'],
+
+    // Descrição não pode terminar com ponto
+    'subject-full-stop': [2, 'never', '.'],
+
+    // Descrição obrigatória
+    'subject-empty': [2, 'never'],
+  },
+};
+```
+
+### Como funciona cada regra
+
+Cada regra segue o formato `[severidade, condição, valor]`.
+
+**Severidade:**
+
+| Valor | Significado |
+|-------|-------------|
+| `0` | Desativada |
+| `1` | Warning — avisa mas não bloqueia o commit |
+| `2` | Error — bloqueia o commit |
+
+**Condição:**
+
+| Valor | Significado |
+|-------|-------------|
+| `'always'` | A regra sempre deve ser respeitada |
+| `'never'` | A situação descrita nunca deve ocorrer |
+
+### Outras regras disponíveis
+
+```js
+// Escopo em minúsculo
+'scope-case': [2, 'always', 'lower-case'],
+
+// Corpo do commit: linha máxima de 100 caracteres
+'body-max-line-length': [2, 'always', 100],
+
+// Exige linha em branco entre título e corpo
+'body-leading-blank': [2, 'always'],
+
+// Apenas avisa (não bloqueia) se não tiver escopo
+'scope-empty': [1, 'never'],
 ```
 
 ---
@@ -132,14 +193,14 @@ git commit -m "chore: setup husky, commitizen, commitlint and lint-staged"
 
 ## Como usar no dia a dia
 
-### Fazendo um commit
+### Opção 1 — Menu interativo (recomendado)
 
 ```bash
 git add .         # 1. adiciona os arquivos ao stage
 npm run commit    # 2. abre o menu interativo do Commitizen
 ```
 
-O menu interativo guia você pelo processo:
+O menu guia você por cada campo da mensagem:
 
 ```
 ? Select the type of change that you're committing:
@@ -162,19 +223,25 @@ O menu interativo guia você pelo processo:
 ? Does this change affect any open issues? (y/N)
 ```
 
+### Opção 2 — Commit direto
+
+```bash
+git add .
+git commit -m "feat: adiciona tela de login"
+```
+
+Os hooks rodam normalmente em ambas as opções. A diferença é que o menu interativo ajuda a construir a mensagem corretamente, enquanto o commit direto exige que você já saiba o formato.
+
 ### O que acontece automaticamente
 
 ```
-npm run commit
+git commit (qualquer forma)
     │
-    ├── lint-staged (pre-commit)
-    │       └── formata os arquivos staged com Prettier
+    ├── pre-commit
+    │       └── lint-staged formata os arquivos staged com Prettier
     │
-    ├── commitizen
-    │       └── abre o menu interativo para construir a mensagem
-    │
-    └── commitlint (commit-msg)
-            └── valida se a mensagem segue o padrão
+    └── commit-msg
+            └── commitlint valida se a mensagem segue o padrão
 ```
 
 ---
@@ -187,26 +254,61 @@ npm run commit
 <tipo>(<escopo opcional>): <descrição curta>
 ```
 
+- O **tipo** é obrigatório e deve ser em minúsculo
+- O **escopo** é opcional e identifica a área do código alterada
+- A **descrição** é obrigatória, entre 10 e 72 caracteres, sem ponto final
+
+### Tipos disponíveis
+
+| Tipo | Quando usar |
+|------|-------------|
+| `feat` | Nova funcionalidade para o usuário |
+| `fix` | Correção de bug |
+| `docs` | Alterações apenas em documentação |
+| `style` | Formatação, ponto e vírgula, espaços — sem mudança de lógica |
+| `refactor` | Refatoração de código sem nova feature ou correção de bug |
+| `perf` | Melhoria de performance |
+| `test` | Adição ou correção de testes |
+| `build` | Alterações no sistema de build ou dependências externas |
+| `chore` | Tarefas de manutenção que não afetam o código de produção |
+| `revert` | Reverte um commit anterior |
+
 ### Exemplos válidos
 
 ```bash
+# Sem escopo
 feat: adiciona tela de login
-fix: corrige validação do formulário de cadastro
-feat(auth): implementa autenticação com JWT
-fix(api): trata erro 500 na requisição de usuários
-docs: atualiza README com instruções de instalação
-chore: atualiza dependências do projeto
-refactor: extrai lógica de validação para service
-test: adiciona testes unitários no UserService
+fix: corrige validacao no formulario de cadastro
+docs: atualiza instrucoes de instalacao no README
+chore: atualiza dependencias do projeto
+refactor: extrai logica de validacao para service
+test: adiciona testes unitarios no UserService
 style: formata arquivos com prettier
+perf: reduz tempo de carregamento da listagem
+build: adiciona configuracao do eslint
+revert: reverte commit de autenticacao com google
+
+# Com escopo (area do sistema afetada)
+feat(auth): implementa autenticacao com JWT
+fix(api): trata erro 500 na requisicao de usuarios
+feat(dashboard): adiciona grafico de vendas mensais
+fix(formulario): corrige mascara do campo de telefone
+refactor(user): separa responsabilidades do UserService
+test(auth): cobre casos de token expirado
+docs(api): documenta endpoints de autenticacao
+chore(deps): atualiza angular para versao 21
 ```
 
 ### Exemplos inválidos (serão bloqueados)
 
 ```bash
-arrumei um bug              # ❌ sem tipo
-Update                      # ❌ sem tipo e muito genérico
-fix - corrige o botão       # ❌ formato incorreto
+arrumei um bug                    # ❌ sem tipo
+Update                            # ❌ sem tipo e descrição muito curta
+fix - corrige o botão             # ❌ formato incorreto, usar dois pontos
+Fix: corrige o botão              # ❌ tipo com letra maiúscula
+feat: ok                          # ❌ descrição muito curta (menos de 10 caracteres)
+feat: adiciona a nova tela de login para o usuario acessar o sistema de gestao de pedidos  # ❌ título muito longo (mais de 72 caracteres)
+feat: adiciona tela de login.     # ❌ descrição não pode terminar com ponto
 ```
 
 ---
@@ -242,8 +344,22 @@ chmod +x .husky/pre-commit .husky/commit-msg
 
 ### Mensagem de commit rejeitada
 
-Certifique-se de usar o formato correto:
+O commitlint exibirá o erro com o motivo, por exemplo:
+
 ```
-<tipo>: <descrição>
+✖   header must not be longer than 72 characters, current length is 85
+✖   subject may not be empty
+✖   type must be one of [feat, fix, docs, ...]
 ```
-Ou use `npm run commit` para o menu interativo construir a mensagem por você.
+
+Use `npm run commit` para o menu interativo construir a mensagem corretamente por você.
+
+### Bypass emergencial (usar com cautela)
+
+Em casos excepcionais, é possível pular os hooks com a flag `--no-verify`:
+
+```bash
+git commit -m "chore: mensagem" --no-verify
+```
+
+Evite usar no dia a dia — os hooks existem para manter a qualidade do histórico do projeto.
